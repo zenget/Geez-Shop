@@ -42,6 +42,10 @@ class Products with ChangeNotifier {
     // ),
   ];
   // var _showFavoritesOnly = false;
+  final String authToken;
+  final String userId;
+
+  Products(this.authToken, this.userId, this._items);
 
   List<Product> get items {
     // if (_showFavoritesOnly) {
@@ -68,13 +72,21 @@ class Products with ChangeNotifier {
   //   notifyListeners();
   // }
 
-  Future<void> fetchAndSetProducts() async {
-    const url = 'geez-shop2-default-rtdb.firebaseio.com';
+  Future<void> fetchAndSetProducts([bool filterByUser = false]) async {
+    final filterString =
+        filterByUser ? 'orderBy="creatorId"&equalTo="$userId"' : '';
+    var url =
+        'https://geez-shop2-default-rtdb.firebaseio.com/products.json?auth=$authToken&$filterString';
     try {
-      final response = await http.get(
-        Uri.https(url, '/products.json'),
-      );
+      final response = await http.get(Uri.parse(url));
       final extractedData = json.decode(response.body) as Map<String, dynamic>;
+      if (extractedData == null) {
+        return;
+      }
+      url =
+          'https://geez-shop2-default-rtdb.firebaseio.com/userFavorites/$userId.json?auth=$authToken';
+      final favoriteResponse = await http.get(Uri.parse(url));
+      final favoriteData = json.decode(favoriteResponse.body);
       final List<Product> loadedProducts = [];
       extractedData.forEach((prodId, prodData) {
         loadedProducts.add(Product(
@@ -82,7 +94,8 @@ class Products with ChangeNotifier {
           title: prodData['title'],
           description: prodData['description'],
           price: prodData['price'],
-          isFavorite: prodData['isFavorite'],
+          isFavorite:
+              favoriteData == null ? false : favoriteData[prodId] ?? false,
           imageUrl: prodData['imageUrl'],
         ));
       });
@@ -94,16 +107,17 @@ class Products with ChangeNotifier {
   }
 
   Future<void> addProduct(Product product) async {
-    const url = 'geez-shop2-default-rtdb.firebaseio.com';
+    final url =
+        'https://geez-shop2-default-rtdb.firebaseio.com/products.json?auth=$authToken';
     try {
       final response = await http.post(
-        Uri.https(url, '/products.json'),
+        Uri.parse(url),
         body: json.encode({
           'title': product.title,
           'description': product.description,
           'imageUrl': product.imageUrl,
           'price': product.price,
-          'isFavorite': product.isFavorite,
+          'creatorId': userId,
         }),
       );
       final newProduct = Product(
@@ -125,8 +139,9 @@ class Products with ChangeNotifier {
   Future<void> updateProduct(String id, Product newProduct) async {
     final prodIndex = _items.indexWhere((prod) => prod.id == id);
     if (prodIndex >= 0) {
-      const url = 'geez-shop2-default-rtdb.firebaseio.com';
-      await http.patch(Uri.https(url, '/products/$id.json'),
+      final url =
+          'https://geez-shop2-default-rtdb.firebaseio.com/products/$id.json?auth=$authToken';
+      await http.patch(Uri.parse(url),
           body: json.encode({
             'title': newProduct.title,
             'description': newProduct.description,
@@ -141,12 +156,13 @@ class Products with ChangeNotifier {
   }
 
   Future<void> deleteProduct(String id) async {
-    const url = 'geez-shop2-default-rtdb.firebaseio.com';
+    final url =
+        'https://geez-shop2-default-rtdb.firebaseio.com/products/$id.json?auth=$authToken';
     final existingProductIndex = _items.indexWhere((prod) => prod.id == id);
     var existingProduct = _items[existingProductIndex];
     _items.removeAt(existingProductIndex);
     notifyListeners();
-    final response = await http.delete(Uri.https(url, '/products/$id.json'));
+    final response = await http.delete(Uri.parse(url));
     if (response.statusCode >= 400) {
       _items.insert(existingProductIndex, existingProduct);
       notifyListeners();

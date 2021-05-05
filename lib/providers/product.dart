@@ -21,15 +21,17 @@ class Product with ChangeNotifier {
     this.isFavorite = false,
   });
 
-  Future<void> toggleFavoriteStatus() async {
+  Future<void> toggleFavoriteStatus(String token, String userId) async {
     isFavorite = !isFavorite;
     notifyListeners();
 
     const url = 'geez-shop2-default-rtdb.firebaseio.com';
 
-    final response = await http.patch(Uri.https(url, '/products/$id'),
-        body: json.encode({'isFavorite': isFavorite}));
+    final response = await http.put(
+        Uri.https(url, '/userFavorites/$userId/$id.json', {'auth': token}),
+        body: json.encode(isFavorite));
 
+    print(response.body);
     if (response.statusCode >= 400) {
       isFavorite = !isFavorite;
       notifyListeners();
