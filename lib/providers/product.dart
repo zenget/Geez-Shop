@@ -29,11 +29,11 @@ class Product with ChangeNotifier {
     final oldStatus = isFavorite;
     isFavorite = !isFavorite;
     notifyListeners();
-    final url = Uri.https('geez-shop2-default-rtdb.firebaseio.com',
-        '/userFavorites/$userId/$id.json?auth=$token');
+    final url =
+        'https://geez-shop2-default-rtdb.firebaseio.com/userFavorites/$userId/$id.json?auth=$token';
     try {
       final response = await http.put(
-        url,
+        Uri.parse(url),
         body: json.encode(
           isFavorite,
         ),
